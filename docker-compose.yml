@@ -1,0 +1,63 @@
+# docker compose up --build   ->   app on http://localhost:8080, Model Lab on http://localhost:8501
+name: docksight
+
+x-backend: &backend
+  build: ./backend
+  environment:
+    DOCKSIGHT_DATABASE_URL: postgresql+psycopg://docksight:docksight@db:5432/docksight
+    DOCKSIGHT_MLFLOW_TRACKING_URI: sqlite:////app/artifacts/mlflow.db
+    DOCKSIGHT_JWT_SECRET: ${DOCKSIGHT_JWT_SECRET:-local-compose-secret-change-me-in-any-real-deployment}
+  volumes:
+    - artifacts:/app/artifacts
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: docksight
+      POSTGRES_PASSWORD: docksight
+      POSTGRES_DB: docksight
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U docksight"]
+      interval: 5s
+      retries: 10
+
+  # One-shot batch job: generate data, train, score. The API waits for it to finish.
+  pipeline:
+    <<: *backend
+    command: ["python", "-m", "docksight.pipeline.run"]
+    healthcheck:
+      disable: true
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    <<: *backend
+    ports: ["8000:8000"]
+    depends_on:
+      pipeline:
+        condition: service_completed_successfully
+
+  lab:
+    <<: *backend
+    command: ["streamlit", "run", "streamlit_app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+    ports: ["8501:8501"]
+    healthcheck:
+      disable: true
+    depends_on:
+      pipeline:
+        condition: service_completed_successfully
+
+  web:
+    build: ./frontend
+    ports: ["8080:8080"]
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  artifacts:

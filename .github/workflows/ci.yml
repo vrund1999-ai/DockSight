@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (${{ matrix.db }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        db: [sqlite, postgres]
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: docksight
+          POSTGRES_PASSWORD: docksight
+          POSTGRES_DB: docksight
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U docksight" --health-interval 5s --health-retries 10
+    env:
+      MLFLOW_DISABLE_AGENT_HINT: "1"
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+      - run: pip install -e ".[dev,ml,streamlit]"
+      - run: ruff check .
+      - run: ruff format --check .
+      - name: Tests
+        run: |
+          if [ "${{ matrix.db }}" = "postgres" ]; then
+            export DOCKSIGHT_DATABASE_URL=postgresql+psycopg://docksight:docksight@localhost:5432/docksight
+          fi
+          pytest -q
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npx prettier --check src
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  # Build the real images and boot the whole stack, then hit it through nginx like a user would.
+  e2e:
+    name: Docker smoke test
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose up --build --detach --wait web
+        timeout-minutes: 10
+      - name: Log in and query through the web container
+        run: |
+          token=$(curl -sf -X POST localhost:8080/api/auth/token \
+            -H 'Content-Type: application/json' \
+            -d '{"username":"analyst","password":"docksight"}' | jq -r .access_token)
+          curl -sf localhost:8080/api/portfolio/summary -H "Authorization: Bearer $token" | jq .
+          curl -sf "localhost:8080/api/leases/expiring?limit=3" -H "Authorization: Bearer $token" | jq '.total'
+          curl -sf localhost:8080/ | grep -q '<div id="root">'
+      - if: failure()
+        run: docker compose logs
+      - if: always()
+        run: docker compose down -v

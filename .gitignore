@@ -1,0 +1,23 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Generated data and models (rebuilt by `python -m docksight.pipeline.run`)
+backend/*.db
+backend/artifacts/
+backend/mlruns/
+backend/mlartifacts/
+
+# Node
+node_modules/
+frontend/dist/
+
+# Env / editor
+.env
+.vscode/
+.idea/
+.DS_Store

@@ -1,0 +1,180 @@
+/*
+ * Design tokens ("Ledger"): neutral chrome so that color on the page always means data.
+ * Chart, series and status hues and both chart surfaces are the validated values from the
+ * data-viz palette and must not change without re-running validate_palette.js.
+ */
+:root {
+  color-scheme: light;
+
+  /* Chrome */
+  --bg-page: #f4f4f2;
+  --surface-1: #fcfcfb; /* card + chart surface (validated) */
+  --bg-subtle: #efefec;
+  --bg-elevated: #ffffff;
+  --bg-hover: rgba(11, 11, 10, 0.04);
+  --bg-active: rgba(11, 11, 10, 0.07);
+  --border: rgba(11, 11, 10, 0.08);
+  --border-strong: rgba(11, 11, 10, 0.15);
+  --border-hover: rgba(11, 11, 10, 0.25);
+  --hairline: #ecebe7;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+
+  /* Text */
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #6f6e69; /* ~5:1 on surface; the old #898781 failed AA */
+  --ink: #0b0b0b;
+  --ink-hover: #2b2b29;
+  --ink-contrast: #ffffff;
+
+  /* Accent: focus, selection, links. Never a fill on chrome. */
+  --accent: #2a78d6;
+  --accent-text: #1c5cab;
+  --accent-tint: rgba(42, 120, 214, 0.08);
+  --accent-tint-border: rgba(42, 120, 214, 0.35);
+  --focus: var(--accent);
+  --success-text: #006300;
+  --danger-text: #b3302e;
+
+  /* Data (validated; unchanged) */
+  --series-1: #2a78d6;
+  --diverge-pos: #2a78d6;
+  --diverge-neg: #e34948;
+  --diverge-mid: #f0efec;
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-critical: #d03b3b;
+  --map-land: #ecebe7;
+  --map-border: #fcfcfb;
+  --meter-fill: #2a78d6;
+  /* Meter track = a much lighter step of the fill's ramp, so even a 4% fill reads. */
+  --meter-track: #cde2fb;
+
+  /* Shape */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-full: 999px;
+  --shadow-xs: 0 1px 1px rgba(11, 11, 10, 0.04);
+  --shadow-card: 0 1px 2px rgba(11, 11, 10, 0.04), 0 1px 1px rgba(11, 11, 10, 0.02);
+  --shadow-pop: 0 12px 32px -8px rgba(11, 11, 10, 0.18), 0 2px 6px rgba(11, 11, 10, 0.06);
+  --skeleton-shine: rgba(255, 255, 255, 0.55);
+  --segment-on: var(--surface-1);
+
+  /* Type */
+  --font-sans: "Inter Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", Menlo, monospace;
+
+  /* Motion */
+  --dur-1: 120ms;
+  --dur-2: 180ms;
+  --dur-3: 240ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Layout */
+  --sidebar-w: 232px;
+  --content-max: 1360px;
+}
+
+/* Dark is its own selected set of steps, not an inversion. Explicit choice wins over the OS. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg-page: #0e0e0f;
+  --surface-1: #1a1a19;
+  --bg-subtle: #222221;
+  --bg-elevated: #232322;
+  --bg-hover: rgba(255, 255, 255, 0.05);
+  --bg-active: rgba(255, 255, 255, 0.08);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --border-hover: rgba(255, 255, 255, 0.22);
+  --hairline: #262625;
+  --grid: #2c2c2a;
+  --axis: #383835;
+  --text-primary: #f0efec;
+  --text-secondary: #b5b4ad;
+  --text-muted: #8b8a84;
+  --ink: #f0efec;
+  --ink-hover: #ffffff;
+  --ink-contrast: #0b0b0b;
+  --accent: #3987e5;
+  --accent-text: #6da7ec;
+  --accent-tint: rgba(57, 135, 229, 0.14);
+  --accent-tint-border: rgba(57, 135, 229, 0.45);
+  --success-text: #0ca30c;
+  --danger-text: #f07a78;
+  --series-1: #3987e5;
+  --diverge-pos: #3987e5;
+  --diverge-neg: #e66767;
+  --diverge-mid: #383835;
+  --map-land: #262625;
+  --map-border: #1a1a19;
+  --meter-fill: #3987e5;
+  --meter-track: #0d366b;
+  --shadow-xs: none;
+  --shadow-card: none;
+  --shadow-pop: 0 12px 32px -8px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --skeleton-shine: rgba(255, 255, 255, 0.04);
+  --segment-on: #2a2a29;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --bg-page: #0e0e0f;
+    --surface-1: #1a1a19;
+    --bg-subtle: #222221;
+    --bg-elevated: #232322;
+    --bg-hover: rgba(255, 255, 255, 0.05);
+    --bg-active: rgba(255, 255, 255, 0.08);
+    --border: rgba(255, 255, 255, 0.08);
+    --border-strong: rgba(255, 255, 255, 0.14);
+    --border-hover: rgba(255, 255, 255, 0.22);
+    --hairline: #262625;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --text-primary: #f0efec;
+    --text-secondary: #b5b4ad;
+    --text-muted: #8b8a84;
+    --ink: #f0efec;
+    --ink-hover: #ffffff;
+    --ink-contrast: #0b0b0b;
+    --accent: #3987e5;
+    --accent-text: #6da7ec;
+    --accent-tint: rgba(57, 135, 229, 0.14);
+    --accent-tint-border: rgba(57, 135, 229, 0.45);
+    --success-text: #0ca30c;
+    --danger-text: #f07a78;
+    --series-1: #3987e5;
+    --diverge-pos: #3987e5;
+    --diverge-neg: #e66767;
+    --diverge-mid: #383835;
+    --map-land: #262625;
+    --map-border: #1a1a19;
+    --meter-fill: #3987e5;
+    --meter-track: #0d366b;
+    --shadow-xs: none;
+    --shadow-card: none;
+    --shadow-pop: 0 12px 32px -8px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    --skeleton-shine: rgba(255, 255, 255, 0.04);
+    --segment-on: #2a2a29;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-1: 0.01ms;
+    --dur-2: 0.01ms;
+    --dur-3: 0.01ms;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

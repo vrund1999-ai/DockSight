@@ -1,5 +1,7 @@
+import { BarChart3, Table2 } from "lucide-react";
 import { useLayoutEffect, useState, type ReactNode } from "react";
 import type { RiskBand } from "../api";
+import { SegmentedControl, Skeleton } from "./ui";
 
 /**
  * Track an element's width so charts re-layout responsively instead of scaling text.
@@ -27,17 +29,25 @@ export interface TooltipState {
   x: number;
   y: number;
   title: string;
-  rows: [string, string][];
+  /** [label, value, optional key color]. The value leads; the key mirrors the mark. */
+  rows: [string, string, string?][];
+  /** Container width, so tooltips near an edge anchor inward instead of clipping. */
+  bounds?: number;
 }
+
+const EDGE = 96;
 
 export function Tooltip({ tip }: { tip: TooltipState | null }) {
   if (!tip) return null;
+  const anchor =
+    tip.x < EDGE ? "anchor-left" : tip.bounds && tip.x > tip.bounds - EDGE ? "anchor-right" : "";
   return (
-    <div className="tooltip" style={{ left: tip.x, top: tip.y }} role="status">
+    <div className={`tooltip ${anchor}`} style={{ left: tip.x, top: tip.y }} role="status">
       <div className="t-title">{tip.title}</div>
-      {tip.rows.map(([k, v]) => (
+      {tip.rows.map(([k, v, color]) => (
         <div className="t-row" key={k}>
-          <span>{k}</span>
+          {color && <span className="t-key" style={{ background: color }} aria-hidden />}
+          <span className="t-label">{k}</span>
           <b>{v}</b>
         </div>
       ))}
@@ -45,39 +55,74 @@ export function Tooltip({ tip }: { tip: TooltipState | null }) {
   );
 }
 
+type View = "chart" | "table";
+
 /** Card with an optional chart/table toggle: every chart has a table-view twin. */
 export function ChartCard({
   title,
   subtitle,
   chart,
   table,
+  actions,
+  footer,
+  loading = false,
+  stale = false,
+  skeletonHeight = 240,
   className = "",
 }: {
   title: string;
-  subtitle?: string;
+  subtitle?: ReactNode;
   chart: ReactNode;
   table?: ReactNode;
+  actions?: ReactNode;
+  footer?: ReactNode;
+  loading?: boolean;
+  stale?: boolean;
+  skeletonHeight?: number;
   className?: string;
 }) {
-  const [showTable, setShowTable] = useState(false);
+  const [view, setView] = useState<View>("chart");
   return (
-    <section className={`card ${className}`} aria-label={title}>
+    <section
+      className={`card ${stale ? "is-stale" : ""} ${className}`}
+      aria-label={title}
+      aria-busy={loading || stale || undefined}
+    >
       <div className="card-head">
         <div>
           <h2>{title}</h2>
-          {subtitle && <p>{subtitle}</p>}
+          {subtitle && <p className="sub">{subtitle}</p>}
         </div>
-        {table && (
-          <button
-            className="btn ghost"
-            onClick={() => setShowTable((s) => !s)}
-            aria-pressed={showTable}
-          >
-            {showTable ? "Show chart" : "Show table"}
-          </button>
+        <div className="card-actions">
+          {actions}
+          {table && (
+            <SegmentedControl<View>
+              size="sm"
+              collapse
+              ariaLabel={`${title} view`}
+              value={view}
+              onChange={setView}
+              options={[
+                { value: "chart", label: "Chart", icon: <BarChart3 size={14} aria-hidden /> },
+                { value: "table", label: "Table", icon: <Table2 size={14} aria-hidden /> },
+              ]}
+            />
+          )}
+        </div>
+      </div>
+      <div className="card-body">
+        {loading ? (
+          <>
+            <Skeleton height={skeletonHeight} />
+            <span className="sr-only">Loading {title}</span>
+          </>
+        ) : view === "table" && table ? (
+          <div className="table-wrap">{table}</div>
+        ) : (
+          chart
         )}
       </div>
-      {showTable ? <div className="table-wrap">{table}</div> : chart}
+      {footer && !loading && <div className="card-foot">{footer}</div>}
     </section>
   );
 }
@@ -88,10 +133,15 @@ const RISK_LABEL: Record<RiskBand, string> = {
   low: "Likely to renew",
 };
 
+/** The status shape (triangle / circle / square) that always travels with the status color. */
+export function RiskShape({ band }: { band: RiskBand }) {
+  return <span className={`risk-shape ${band}`} aria-hidden />;
+}
+
 export function RiskBadge({ band }: { band: RiskBand }) {
   return (
     <span className={`risk ${band}`}>
-      <span className="icon" aria-hidden />
+      <RiskShape band={band} />
       {RISK_LABEL[band]}
     </span>
   );

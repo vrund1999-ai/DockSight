@@ -1,0 +1,170 @@
+.chart {
+  position: relative;
+  width: 100%;
+}
+.chart svg {
+  display: block;
+  overflow: visible;
+}
+.chart text {
+  fill: var(--text-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.chart .label-primary {
+  fill: var(--text-primary);
+  font-size: 12px;
+  font-weight: 500;
+}
+.chart .label-secondary {
+  fill: var(--text-secondary);
+  font-size: 12px;
+}
+.chart .grid line {
+  stroke: var(--grid);
+  shape-rendering: crispEdges;
+}
+.chart .baseline {
+  stroke: var(--axis);
+  shape-rendering: crispEdges;
+}
+.chart .hit {
+  fill: transparent;
+  cursor: pointer;
+}
+.chart .hit:focus-visible {
+  outline: none;
+  stroke: var(--focus);
+  stroke-width: 2;
+}
+.chart .crosshair {
+  stroke: var(--axis);
+  shape-rendering: crispEdges;
+}
+.chart .dot {
+  fill: var(--series-1);
+  stroke: var(--surface-1);
+  stroke-width: 2;
+}
+.chart .hover-band {
+  fill: var(--bg-hover);
+}
+.chart .mark {
+  transition: opacity var(--dur-1) var(--ease-out);
+}
+.chart .dimmed .mark {
+  opacity: 0.45;
+}
+
+/* Map */
+.chart .land {
+  fill: var(--map-land);
+}
+.chart .borders {
+  fill: none;
+  stroke: var(--map-border);
+  stroke-width: 0.75;
+}
+.chart .bubble {
+  fill: var(--series-1);
+  fill-opacity: 0.8;
+  stroke: var(--surface-1);
+  stroke-width: 2;
+  transition:
+    fill-opacity var(--dur-1),
+    opacity var(--dur-1);
+}
+.chart .bubble.hovered {
+  fill-opacity: 1;
+}
+.chart .bubble.selected {
+  fill-opacity: 1;
+  stroke: var(--text-primary);
+}
+.chart .bubble.faded {
+  opacity: 0.3;
+}
+.chart .map-label {
+  font-size: 12px;
+  font-weight: 500;
+  fill: var(--text-secondary);
+  paint-order: stroke;
+  stroke: var(--surface-1);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+.chart .map-label.selected {
+  fill: var(--text-primary);
+  font-weight: 600;
+}
+.chart .map-label.faded {
+  fill: var(--text-muted);
+}
+.chart .size-legend circle {
+  fill: none;
+  stroke: var(--text-muted);
+}
+.chart .size-legend .legend-plate {
+  fill: var(--surface-1);
+  fill-opacity: 0.9;
+}
+
+/* Legend (HTML) */
+.legend {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+}
+.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.legend .legend-end {
+  margin-left: auto;
+  color: var(--text-muted);
+}
+
+/* Trend card header stat */
+.stat-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-bottom: 8px;
+}
+.stat-row .stat {
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+.stat-row .unit {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 12.5px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.delta.good {
+  color: var(--success-text);
+}
+.delta.bad {
+  color: var(--danger-text);
+}
+.delta.flat {
+  color: var(--text-secondary);
+}
+.delta .vs {
+  color: var(--text-muted);
+  font-weight: 400;
+  margin-left: 4px;
+}

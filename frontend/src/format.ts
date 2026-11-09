@@ -15,6 +15,34 @@ export const fmt = {
     parseDay(iso).toLocaleDateString("en-US", { month: "short", year: "numeric" }),
 };
 
+export interface YearChange {
+  text: string;
+  direction: "up" | "down" | "flat";
+  good: boolean | null;
+}
+
+/**
+ * Change versus 12 points earlier in a monthly series. `kind` picks the unit: a relative % change
+ * (rent) or a difference in percentage points (rates like vacancy). `upIsGood` sets the tone.
+ */
+export function yearChange(
+  values: number[],
+  kind: "relative" | "points",
+  upIsGood: boolean,
+): YearChange | null {
+  if (values.length < 13) return null;
+  const now = values[values.length - 1];
+  const then = values[values.length - 13];
+  const diff = kind === "relative" ? (then === 0 ? 0 : now / then - 1) : now - then;
+  const direction = Math.abs(diff) < 0.0005 ? "flat" : diff > 0 ? "up" : "down";
+  const text =
+    kind === "relative"
+      ? fmt.signedPct(diff)
+      : `${diff >= 0 ? "+" : ""}${(diff * 100).toFixed(1)} pts`;
+  const good = direction === "flat" ? null : (direction === "up") === upIsGood;
+  return { text, direction, good };
+}
+
 /** Render a model feature value the way an asset manager would say it. */
 export function featureValue(feature: string, v: number | string): string {
   if (typeof v === "string") return v;

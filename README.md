@@ -112,6 +112,11 @@ npm install
 npm run dev                                           # http://localhost:5173
 ```
 
+**Azure** (Container Apps, Postgres Flexible Server, Azure Files): `infra/main.bicep`, deployed by
+`.github/workflows/deploy.yml` after CI passes on `main`. The workflow builds and pushes both images,
+signs in to Azure with OIDC, applies the Bicep, runs the pipeline job, and smoke-tests the live site.
+See [ADR 0005](docs/adr/0005-azure-deployment.md).
+
 ## Quality
 
 | | |
@@ -119,6 +124,7 @@ npm run dev                                           # http://localhost:5173
 | Backend | 24 pytest tests: data invariants, leakage guards, model quality floor, API contracts and auth, Streamlit app via `AppTest`; run against **both SQLite and PostgreSQL** in CI; `ruff` lint + format |
 | Frontend | Vitest + Testing Library; ESLint; strict TypeScript; Prettier |
 | CI | GitHub Actions: backend matrix, frontend checks, then a Docker smoke test that boots the full stack and calls the API through nginx |
+| CD | On green `main`: build and push images, apply Bicep, run the pipeline job, smoke-test the live URL |
 
 ## Project layout
 
@@ -134,12 +140,14 @@ frontend/
   src/
     components/ MarketMap · ExpiryChart · TrendChart · DriversChart (D3 math, React DOM)
     pages/      Dashboard · Leases · LeaseDetail · Model · Login
+infra/          main.bicep (Azure Container Apps, Postgres, Azure Files)
 docs/adr/       Architecture decision records
 ```
 
 ## Roadmap
 
-- [ ] Deploy to Azure: Container Apps + Azure Database for PostgreSQL + Blob Storage for artifacts ([ADR 0005](docs/adr/0005-azure-deployment.md))
+- [x] Deploy to Azure: Container Apps + Azure Database for PostgreSQL + Azure Files for artifacts ([ADR 0005](docs/adr/0005-azure-deployment.md))
+- [ ] Key Vault for secrets and VNet integration for Postgres
 - [ ] Microsoft Entra ID sign-in (MSAL in the SPA, JWKS validation in the API)
 - [ ] Kubernetes manifests (AKS) alongside Container Apps
 - [ ] PySpark version of the feature job for Databricks

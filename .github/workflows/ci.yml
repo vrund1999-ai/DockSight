@@ -45,7 +45,9 @@ jobs:
       - name: Tests
         run: |
           if [ "${{ matrix.db }}" = "postgres" ]; then
+            # Same setup as Azure: app tables and MLflow tracking both in Postgres.
             export DOCKSIGHT_DATABASE_URL=postgresql+psycopg://docksight:docksight@localhost:5432/docksight
+            export DOCKSIGHT_MLFLOW_TRACKING_URI=$DOCKSIGHT_DATABASE_URL
           fi
           pytest -q
 

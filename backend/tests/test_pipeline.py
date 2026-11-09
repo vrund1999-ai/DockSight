@@ -1,7 +1,11 @@
+import os
+from dataclasses import replace
+
 import pandas as pd
 
 from docksight.ml.explain import explain
 from docksight.ml.features import FEATURES, NUMERIC_FEATURES
+from docksight.ml.model import load_artifact
 from docksight.ml.train import HOLDOUT_START, labelled
 from docksight.pipeline.generate import AS_OF, generate
 
@@ -46,6 +50,20 @@ def test_paying_above_market_hurts_renewal_odds(artifact, features):
     p_cheap, _ = explain(artifact, cheap)
     p_pricey, _ = explain(artifact, pricey)
     assert p_cheap > p_pricey
+
+
+def test_api_picks_up_a_retrained_model(artifact, tmp_path):
+    # The scheduled job retrains while the API is running; explanations must follow the new model.
+    path = tmp_path / "model.joblib"
+    artifact.save(path)
+    first = load_artifact(path)
+    assert load_artifact(path) is first
+
+    replace(artifact, version="retrained").save(path)
+    st = path.stat()
+    os.utime(path, ns=(st.st_atime_ns, st.st_mtime_ns + 1_000_000_000))
+    assert load_artifact(path).version == "retrained"
+    assert not path.with_suffix(".tmp").exists()
 
 
 def test_explanations_cover_every_feature(artifact, features):

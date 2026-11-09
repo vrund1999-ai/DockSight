@@ -4,10 +4,10 @@ from pathlib import Path
 
 # Must be set before docksight.db is imported, since the engine is created at import time.
 _TMP = Path(tempfile.mkdtemp(prefix="docksight-test-"))
-# CI also runs the suite against Postgres by pre-setting DOCKSIGHT_DATABASE_URL.
+# CI also runs the suite against Postgres (app tables and MLflow tracking) by pre-setting these.
 os.environ.setdefault("DOCKSIGHT_DATABASE_URL", f"sqlite:///{_TMP / 'test.db'}")
+os.environ.setdefault("DOCKSIGHT_MLFLOW_TRACKING_URI", f"sqlite:///{_TMP / 'mlflow.db'}")
 os.environ["DOCKSIGHT_ARTIFACTS_DIR"] = str(_TMP / "artifacts")
-os.environ["DOCKSIGHT_MLFLOW_TRACKING_URI"] = f"sqlite:///{_TMP / 'mlflow.db'}"
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402

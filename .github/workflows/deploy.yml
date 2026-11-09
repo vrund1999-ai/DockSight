@@ -1,0 +1,128 @@
+name: Deploy
+
+# Runs after CI passes on main (and on demand). Builds both images, pushes them to GHCR, applies
+# infra/main.bicep, runs the batch pipeline once so data and model match the deployed code, then
+# smoke-tests the live site.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write # OIDC sign-in to Azure; no stored Azure credentials
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to Azure Container Apps
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.web_url }}
+    env:
+      RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Image names
+        id: img
+        run: |
+          registry="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}"
+          tag="$(git rev-parse --short=12 HEAD)"
+          echo "api=$registry/docksight-api:$tag" >> "$GITHUB_OUTPUT"
+          echo "web=$registry/docksight-web:$tag" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          push: true
+          tags: ${{ steps.img.outputs.api }}
+          labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          push: true
+          tags: ${{ steps.img.outputs.web }}
+          labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy infrastructure and apps
+        id: deploy
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+        run: |
+          out=$(az deployment group create \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "docksight-${GITHUB_RUN_NUMBER}" \
+            --template-file infra/main.bicep \
+            --parameters apiImage='${{ steps.img.outputs.api }}' webImage='${{ steps.img.outputs.web }}' \
+                         postgresPassword="$POSTGRES_PASSWORD" jwtSecret="$JWT_SECRET" \
+            --query properties.outputs --output json)
+          echo "web_url=$(jq -r .webUrl.value <<<"$out")" >> "$GITHUB_OUTPUT"
+          echo "lab_url=$(jq -r .labUrl.value <<<"$out")" >> "$GITHUB_OUTPUT"
+          echo "job=$(jq -r .pipelineJobName.value <<<"$out")" >> "$GITHUB_OUTPUT"
+
+      - name: Run the pipeline job (load data, train, score)
+        env:
+          JOB: ${{ steps.deploy.outputs.job }}
+        run: |
+          az config set extension.use_dynamic_install=yes_without_prompt --only-show-errors
+          execution=$(az containerapp job start -g "$RESOURCE_GROUP" -n "$JOB" --query name -o tsv)
+          echo "Started $execution"
+          for _ in $(seq 80); do
+            status=$(az containerapp job execution show -g "$RESOURCE_GROUP" -n "$JOB" \
+              --job-execution-name "$execution" --query properties.status -o tsv)
+            echo "$(date -u +%T) $status"
+            case "$status" in
+              Succeeded) exit 0 ;;
+              Failed|Stopped|Degraded) exit 1 ;;
+            esac
+            sleep 15
+          done
+          echo "Timed out waiting for $execution"; exit 1
+
+      - name: Smoke test the live site
+        env:
+          URL: ${{ steps.deploy.outputs.web_url }}
+        run: |
+          # Apps scale to zero, so the first request may wait for a cold start.
+          curl -sf --retry 12 --retry-delay 10 --retry-all-errors "$URL/" | grep -q '<div id="root">'
+          token=$(curl -sf --retry 12 --retry-delay 10 --retry-all-errors -X POST "$URL/api/auth/token" \
+            -H 'Content-Type: application/json' \
+            -d '{"username":"analyst","password":"docksight"}' | jq -r .access_token)
+          curl -sf "$URL/api/portfolio/summary" -H "Authorization: Bearer $token" | jq .
+          {
+            echo "### Deployed"
+            echo "- App: $URL"
+            echo "- Model Lab: ${{ steps.deploy.outputs.lab_url }}"
+          } >> "$GITHUB_STEP_SUMMARY"

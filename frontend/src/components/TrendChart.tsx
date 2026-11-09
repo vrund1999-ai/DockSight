@@ -49,8 +49,13 @@ export function TrendChart({ data, label, format, height = 200 }: Props) {
         <g className="grid">
           {y.ticks(4).map((t) => (
             <g key={t}>
-              <line x1={M.left} x2={width - M.right} y1={y(t)} y2={y(t)} />
-              <text x={M.left - 8} y={y(t) + 4} textAnchor="end" fontVariant="tabular-nums">
+              <line
+                x1={M.left}
+                x2={width - M.right}
+                y1={Math.round(y(t)) + 0.5}
+                y2={Math.round(y(t)) + 0.5}
+              />
+              <text x={M.left - 8} y={y(t) + 4} textAnchor="end">
                 {format(t)}
               </text>
             </g>
@@ -60,15 +65,22 @@ export function TrendChart({ data, label, format, height = 200 }: Props) {
           className="baseline"
           x1={M.left}
           x2={width - M.right}
-          y1={height - M.bottom}
-          y2={height - M.bottom}
+          y1={Math.round(height - M.bottom) + 0.5}
+          y2={Math.round(height - M.bottom) + 0.5}
         />
         {years.map((t) => (
           <text key={+t} x={x(t)} y={height - 6} textAnchor="middle">
             {t.getFullYear()}
           </text>
         ))}
-        <path d={d ?? ""} fill="none" stroke="var(--series-1)" strokeWidth={2} />
+        <path
+          d={d ?? ""}
+          fill="none"
+          stroke="var(--series-1)"
+          strokeWidth={2}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
 
         {/* Direct label on the endpoint only. */}
         <circle cx={x(last.date)} cy={y(last.value)} r={4} className="dot" />
@@ -116,7 +128,8 @@ export function TrendChart({ data, label, format, height = 200 }: Props) {
             x: x(hovered.date),
             y: y(hovered.value),
             title: monthFmt(hovered.date),
-            rows: [[label, format(hovered.value)]],
+            rows: [[label, format(hovered.value), "var(--series-1)"]],
+            bounds: width,
           }
         }
       />

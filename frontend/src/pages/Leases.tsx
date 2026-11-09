@@ -1,10 +1,14 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { ChevronLeft, ChevronRight, CircleAlert } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { api, type LeaseQuery, type RiskBand } from "../api";
 import { LeaseTable } from "../components/LeaseTable";
+import { RiskShape } from "../components/primitives";
+import { FilterSelect, PageHeader, SegmentedControl, Skeleton } from "../components/ui";
 import { fmt } from "../format";
 
 const PAGE = 25;
+type BandFilter = RiskBand | "all";
 
 export function Leases() {
   const [params, setParams] = useSearchParams();
@@ -33,84 +37,152 @@ export function Leases() {
       },
       { replace: true },
     );
+  const clearFilters = () => setParams({}, { replace: true });
+  const filtered = query.months !== 24 || !!query.market || !!query.band || query.sort !== "risk";
 
   const total = leases.data?.total ?? 0;
   const sqft = leases.data?.items.reduce((acc, l) => acc + l.sqft, 0) ?? 0;
+  const page = Math.floor(query.offset / PAGE) + 1;
+  const pages = Math.max(1, Math.ceil(total / PAGE));
 
   return (
     <>
-      <div className="page-head">
-        <h1>Lease expirations</h1>
-        <p>Active leases ranked by predicted renewal probability. Click a lease to see why.</p>
-      </div>
+      <PageHeader
+        title="Lease expirations"
+        meta={
+          leases.data
+            ? `${total.toLocaleString()} active leases expiring within ${query.months} months · ranked by predicted renewal probability`
+            : "Active leases ranked by predicted renewal probability"
+        }
+      />
 
-      <div className="filters">
-        <label>
-          Expiring within
-          <select value={query.months} onChange={(e) => update("months", e.target.value)}>
-            {[6, 12, 24, 36, 60].map((m) => (
-              <option key={m} value={m}>
-                {m} months
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Market
-          <select value={query.market ?? ""} onChange={(e) => update("market", e.target.value)}>
-            <option value="">All markets</option>
-            {markets.data?.map((m) => (
-              <option key={m.code} value={m.code}>
-                {m.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Risk
-          <select value={query.band ?? ""} onChange={(e) => update("band", e.target.value)}>
-            <option value="">All</option>
-            <option value="high">High risk (&lt;40%)</option>
-            <option value="medium">Watch (40–65%)</option>
-            <option value="low">Likely to renew (≥65%)</option>
-          </select>
-        </label>
-        <label>
-          Sort by
-          <select value={query.sort} onChange={(e) => update("sort", e.target.value)}>
-            <option value="risk">Highest risk</option>
-            <option value="expiry">Soonest expiry</option>
-            <option value="sqft">Largest</option>
-          </select>
-        </label>
-      </div>
-
-      <section className={`card ${leases.isPlaceholderData ? "stale" : ""}`}>
-        {leases.error && <p className="error">{String(leases.error)}</p>}
-        {leases.data && <LeaseTable leases={leases.data.items} />}
-        <div className="pager">
-          <span>
-            {total === 0
-              ? "No results"
-              : `${query.offset + 1}–${Math.min(query.offset + PAGE, total)} of ${total} leases · ${fmt.sqft(sqft)} on this page`}
-          </span>
-          <span style={{ display: "flex", gap: 8 }}>
-            <button
-              className="btn"
-              disabled={query.offset === 0}
-              onClick={() => update("offset", String(Math.max(0, query.offset - PAGE)))}
-            >
-              Previous
+      <section
+        className={`card card--flush sticky-head ${leases.isPlaceholderData ? "is-stale" : ""}`}
+        aria-label="Lease expirations"
+        aria-busy={leases.isFetching || undefined}
+      >
+        <div className="toolbar">
+          <FilterSelect
+            prefix="Expiring within"
+            value={String(query.months)}
+            isDefault={query.months === 24}
+            onChange={(v) => update("months", v)}
+            options={[6, 12, 24, 36, 60].map((m) => ({ value: String(m), label: `${m} months` }))}
+          />
+          <FilterSelect
+            prefix="Market"
+            value={query.market ?? ""}
+            isDefault={!query.market}
+            onChange={(v) => update("market", v)}
+            options={[
+              { value: "", label: "All markets" },
+              ...(markets.data ?? []).map((m) => ({ value: m.code, label: m.name })),
+            ]}
+          />
+          <SegmentedControl<BandFilter>
+            ariaLabel="Risk band"
+            value={query.band ?? "all"}
+            onChange={(v) => update("band", v === "all" ? undefined : v)}
+            options={[
+              { value: "all", label: "All" },
+              {
+                value: "high",
+                label: "High risk",
+                icon: <RiskShape band="high" />,
+                title: "Renewal probability under 40%",
+              },
+              {
+                value: "medium",
+                label: "Watch",
+                icon: <RiskShape band="medium" />,
+                title: "Renewal probability 40–65%",
+              },
+              {
+                value: "low",
+                label: "Likely to renew",
+                icon: <RiskShape band="low" />,
+                title: "Renewal probability 65% or more",
+              },
+            ]}
+          />
+          <span className="spacer" />
+          {filtered && (
+            <button className="btn btn-ghost btn-sm" onClick={clearFilters}>
+              Clear filters
             </button>
-            <button
-              className="btn"
-              disabled={query.offset + PAGE >= total}
-              onClick={() => update("offset", String(query.offset + PAGE))}
-            >
-              Next
-            </button>
-          </span>
+          )}
+          <FilterSelect<LeaseQuery["sort"]>
+            prefix="Sort"
+            value={query.sort}
+            onChange={(v) => update("sort", v === "risk" ? undefined : v)}
+            options={[
+              { value: "risk", label: "Highest risk" },
+              { value: "expiry", label: "Soonest expiry" },
+              { value: "sqft", label: "Largest" },
+            ]}
+          />
         </div>
+
+        {leases.error && (
+          <div style={{ padding: 20 }}>
+            <div className="alert" role="alert">
+              <CircleAlert size={16} aria-hidden />
+              <span style={{ flex: 1 }}>Couldn&rsquo;t load leases: {String(leases.error)}</span>
+              <button className="btn btn-secondary btn-sm" onClick={() => leases.refetch()}>
+                Retry
+              </button>
+            </div>
+          </div>
+        )}
+        {leases.data ? (
+          <LeaseTable
+            leases={leases.data.items}
+            empty={
+              <button className="btn btn-secondary" onClick={clearFilters}>
+                Clear filters
+              </button>
+            }
+          />
+        ) : (
+          !leases.error && (
+            <div style={{ padding: 20, display: "grid", gap: 14 }}>
+              <span className="sr-only">Loading leases</span>
+              {Array.from({ length: 8 }, (_, i) => (
+                <Skeleton key={i} height={40} />
+              ))}
+            </div>
+          )
+        )}
+
+        {total > 0 && (
+          <div className="pager">
+            <span>
+              {query.offset + 1}–{Math.min(query.offset + PAGE, total)} of {total.toLocaleString()}{" "}
+              · {fmt.sqft(sqft)} on this page
+            </span>
+            <span className="controls">
+              <span>
+                Page {page} of {pages}
+              </span>
+              <button
+                className="btn btn-secondary btn-sm btn-icon"
+                aria-label="Previous page"
+                disabled={query.offset === 0}
+                onClick={() => update("offset", String(Math.max(0, query.offset - PAGE)))}
+              >
+                <ChevronLeft size={16} aria-hidden />
+              </button>
+              <button
+                className="btn btn-secondary btn-sm btn-icon"
+                aria-label="Next page"
+                disabled={query.offset + PAGE >= total}
+                onClick={() => update("offset", String(query.offset + PAGE))}
+              >
+                <ChevronRight size={16} aria-hidden />
+              </button>
+            </span>
+          </div>
+        )}
       </section>
     </>
   );

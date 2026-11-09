@@ -1,10 +1,12 @@
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
 import type { Driver, ExpiryBucket } from "./api";
 import { DriversChart } from "./components/DriversChart";
 import { ExpiryChart } from "./components/ExpiryChart";
+import { ChartCard, RiskBadge } from "./components/primitives";
 import { barPath, columnPath } from "./components/shapes";
-import { featureValue, fmt } from "./format";
+import { featureValue, fmt, yearChange } from "./format";
 import { narrative } from "./pages/LeaseDetail";
+import { useTheme } from "./theme";
 
 const drivers: Driver[] = [
   {
@@ -70,5 +72,63 @@ describe("charts", () => {
       "0",
     );
     expect(screen.getByText("High risk")).toBeInTheDocument();
+  });
+});
+
+describe("ui", () => {
+  it("shows every risk band as a shape plus a label, never color alone", () => {
+    const { container } = render(
+      <>
+        <RiskBadge band="high" />
+        <RiskBadge band="medium" />
+        <RiskBadge band="low" />
+      </>,
+    );
+    for (const label of ["High risk", "Watch", "Likely to renew"])
+      expect(screen.getByText(label)).toBeInTheDocument();
+    expect(
+      container.querySelectorAll(".risk-shape.high, .risk-shape.medium, .risk-shape.low"),
+    ).toHaveLength(3);
+  });
+
+  it("switches a chart card to its table view", () => {
+    render(<ChartCard title="Example" chart={<p>the chart</p>} table={<p>the table</p>} />);
+    const tableBtn = screen.getByRole("button", { name: /table/i });
+    expect(screen.getByText("the chart")).toBeInTheDocument();
+    fireEvent.click(tableBtn);
+    expect(tableBtn).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("the table")).toBeInTheDocument();
+    expect(screen.queryByText("the chart")).not.toBeInTheDocument();
+  });
+
+  it("applies and clears an explicit theme", () => {
+    const { result } = renderHook(() => useTheme());
+    act(() => result.current[1]("dark"));
+    expect(document.documentElement.dataset.theme).toBe("dark");
+    expect(localStorage.getItem("docksight.theme")).toBe("dark");
+    act(() => result.current[1]("system"));
+    expect(document.documentElement.dataset.theme).toBeUndefined();
+    expect(localStorage.getItem("docksight.theme")).toBeNull();
+  });
+});
+
+describe("year-over-year change", () => {
+  const series = (first: number, last: number) => [first, ...Array(11).fill(first), last];
+
+  it("reports relative change and treats rising rent as good", () => {
+    expect(yearChange(series(10, 11), "relative", true)).toEqual({
+      text: "+10.0%",
+      direction: "up",
+      good: true,
+    });
+  });
+
+  it("reports point change and treats rising vacancy as bad", () => {
+    const c = yearChange(series(0.05, 0.062), "points", false);
+    expect(c).toMatchObject({ text: "+1.2 pts", direction: "up", good: false });
+  });
+
+  it("needs a full year of history", () => {
+    expect(yearChange([1, 2, 3], "relative", true)).toBeNull();
   });
 });

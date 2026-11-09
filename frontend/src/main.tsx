@@ -5,7 +5,8 @@ import { BrowserRouter } from "react-router-dom";
 import { ApiError } from "./api";
 import { App } from "./App";
 import { AuthProvider } from "./auth";
-import "./styles.css";
+import "@fontsource-variable/inter";
+import "./styles/index.css";
 
 const queryClient = new QueryClient({
   defaultOptions: {

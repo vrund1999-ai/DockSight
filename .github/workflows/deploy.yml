@@ -29,6 +29,9 @@ jobs:
       url: ${{ steps.deploy.outputs.web_url }}
     env:
       RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+    defaults:
+      run:
+        shell: bash # -eo pipefail; the implicit default is only -e, which hides failures in pipes
     steps:
       - uses: actions/checkout@v4
         with:
@@ -119,8 +122,11 @@ jobs:
           curl -sf --retry 12 --retry-delay 10 --retry-all-errors "$URL/" | grep -q '<div id="root">'
           token=$(curl -sf --retry 12 --retry-delay 10 --retry-all-errors -X POST "$URL/api/auth/token" \
             -H 'Content-Type: application/json' \
-            -d '{"username":"analyst","password":"docksight"}' | jq -r .access_token)
-          curl -sf "$URL/api/portfolio/summary" -H "Authorization: Bearer $token" | jq .
+            -d '{"username":"analyst","password":"docksight"}' | jq -er .access_token)
+          curl -sf "$URL/api/portfolio/summary" -H "Authorization: Bearer $token" \
+            | jq -e '.properties > 0 and .total_sqft > 0'
+          curl -sf "$URL/api/leases/expiring?limit=1" -H "Authorization: Bearer $token" \
+            | jq -e '.total > 0'
           {
             echo "### Deployed"
             echo "- App: $URL"

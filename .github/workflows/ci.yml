@@ -9,6 +9,10 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+defaults:
+  run:
+    shell: bash # -eo pipefail; the implicit default is only -e, which hides failures in pipes
+
 jobs:
   backend:
     name: Backend (${{ matrix.db }})
@@ -84,9 +88,11 @@ jobs:
         run: |
           token=$(curl -sf -X POST localhost:8080/api/auth/token \
             -H 'Content-Type: application/json' \
-            -d '{"username":"analyst","password":"docksight"}' | jq -r .access_token)
-          curl -sf localhost:8080/api/portfolio/summary -H "Authorization: Bearer $token" | jq .
-          curl -sf "localhost:8080/api/leases/expiring?limit=3" -H "Authorization: Bearer $token" | jq '.total'
+            -d '{"username":"analyst","password":"docksight"}' | jq -er .access_token)
+          curl -sf localhost:8080/api/portfolio/summary -H "Authorization: Bearer $token" \
+            | jq -e '.properties > 0 and .total_sqft > 0'
+          curl -sf "localhost:8080/api/leases/expiring?limit=3" -H "Authorization: Bearer $token" \
+            | jq -e '.total > 0'
           curl -sf localhost:8080/ | grep -q '<div id="root">'
       - if: failure()
         run: docker compose logs

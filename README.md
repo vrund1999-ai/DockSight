@@ -14,7 +14,11 @@ It's a full-stack app (React + TypeScript, FastAPI, PostgreSQL) on top of a smal
 (scikit-learn, MLflow) that predicts renewal probability for each active lease and explains each
 prediction in plain language.
 
-![Portfolio dashboard](docs/screenshots/dashboard.png)
+**Live demo:** https://docksight-web.grayisland-f5318410.centralus.azurecontainerapps.io
+(sign in with `analyst` / `docksight`) · [Model Lab](https://docksight-lab.grayisland-f5318410.centralus.azurecontainerapps.io)
+· Hosted on Azure Container Apps and scales to zero, so the first load after a quiet spell takes a few seconds.
+
+![Walkthrough: sign in, market map, expiry wall, rent trend, high-risk leases, why-this-score, dark mode](docs/demo.gif)
 
 <table><tr>
 <td><img src="docs/screenshots/lease-detail.png" alt="Lease detail with explanation"/></td>
